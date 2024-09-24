@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button, ScrollView, StyleSheet } from 'react-native';
 import { Checkbox } from 'react-native-paper';
-
+import jsPDF from 'jspdf';
 
 interface FormData {
   nome: string;
@@ -43,7 +43,21 @@ const Formulario: React.FC = () => {
     handleInputChange('dataNascimento', formatted);
   };
 
-  // Verifica se todos os campos estão preenchidos
+  const calculateAge = (dataNascimento: string): number => {
+    const [day, month, year] = dataNascimento.split('/').map(Number);
+    const birthDate = new Date(year, month - 1, day); // Mês é 0-indexado
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+
+    // Ajusta a idade se ainda não tiver feito aniversário este ano
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    return age;
+  };
+
   const isFormValid = () => {
     const { nome, email, endereco, dataNascimento, telefone, termosAceitos } = formData;
     return (
@@ -56,71 +70,96 @@ const Formulario: React.FC = () => {
     );
   };
 
-  const handleSubmit = () => {
+  const generatePDF = () => {
     if (!isFormValid()) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos e aceite os termos.');
+      alert('Por favor, preencha todos os campos e aceite os termos.');
       return;
     }
 
-    Alert.alert('PDF Gerado', JSON.stringify(formData));
+    const idade = calculateAge(formData.dataNascimento); // Calcula a idade
+    const pdf = new jsPDF();
+    const pdfContent = `
+      DECLARAÇÃO
+
+      Eu me chamo ${formData.nome},
+
+      tenho ${idade} anos.
+
+      Moro no seguinte endereço ${formData.endereco}.
+
+      Meus contatos:
+
+      email: ${formData.email}
+
+      Telefone: ${formData.telefone}
+    `;
+
+    // Adiciona texto ao PDF
+    pdf.text(pdfContent, 10, 10);
+    
+    // Salva o PDF
+    pdf.save('perfil_dados.pdf');
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Perfil</Text>
 
-      <Text style={styles.label}>Nome:</Text>
-      <TextInput
-        style={styles.input}
-        value={formData.nome}
-        onChangeText={(text) => handleInputChange('nome', text)}
-      />
-
-      <Text style={styles.label}>Email:</Text>
-      <TextInput
-        style={styles.input}
-        value={formData.email}
-        keyboardType="email-address"
-        onChangeText={(text) => handleInputChange('email', text)}
-      />
-
-      <Text style={styles.label}>Endereço:</Text>
-      <TextInput
-        style={styles.input}
-        value={formData.endereco}
-        onChangeText={(text) => handleInputChange('endereco', text)}
-      />
-
-      <Text style={styles.label}>Data de Nascimento (DD/MM/AAAA):</Text>
-      <TextInput
-        style={styles.input}
-        value={formData.dataNascimento}
-        keyboardType="numeric"
-        maxLength={10}
-        onChangeText={handleDataNascimentoChange}
-      />
-
-      <Text style={styles.label}>Telefone:</Text>
-      <TextInput
-        style={styles.input}
-        value={formData.telefone}
-        keyboardType="phone-pad"
-        onChangeText={(text) => handleInputChange('telefone', text)}
-      />
-
-      <View style={styles.checkboxContainer}>
-        <Checkbox
-          status={formData.termosAceitos ? 'checked' : 'unchecked'}
-          onPress={() => handleInputChange('termosAceitos', !formData.termosAceitos)}
+      <View style={styles.formContainer}>
+        <Text style={styles.label}>Nome:</Text>
+        <TextInput
+          style={styles.input}
+          value={formData.nome}
+          onChangeText={(text) => handleInputChange('nome', text)}
         />
-        <Text>Aceito os termos</Text>
-      </View>
 
-      <Button
-        title="Gerar PDF"
-        onPress={handleSubmit}
-        disabled={!isFormValid()} // Desabilita o botão se o formulário não estiver válido
-      />
+        <Text style={styles.label}>Email:</Text>
+        <TextInput
+          style={styles.input}
+          value={formData.email}
+          keyboardType="email-address"
+          onChangeText={(text) => handleInputChange('email', text)}
+        />
+
+        <Text style={styles.label}>Endereço:</Text>
+        <TextInput
+          style={styles.input}
+          value={formData.endereco}
+          onChangeText={(text) => handleInputChange('endereco', text)}
+        />
+
+        <Text style={styles.label}>Data de Nascimento (DD/MM/AAAA):</Text>
+        <TextInput
+          style={styles.input}
+          value={formData.dataNascimento}
+          keyboardType="numeric"
+          maxLength={10}
+          onChangeText={handleDataNascimentoChange}
+        />
+
+        <Text style={styles.label}>Telefone:</Text>
+        <TextInput
+          style={styles.input}
+          value={formData.telefone}
+          keyboardType="phone-pad"
+          onChangeText={(text) => handleInputChange('telefone', text)}
+        />
+
+        <View style={styles.checkboxContainer}>
+          <Checkbox
+            status={formData.termosAceitos ? 'checked' : 'unchecked'}
+            onPress={() => handleInputChange('termosAceitos', !formData.termosAceitos)}
+          />
+          <Text>Aceito os termos</Text>
+        </View>
+
+        <Button
+          title="Gerar PDF"
+          onPress={generatePDF}
+          disabled={!isFormValid()}
+          color="#685FE9" // Cor de fundo roxo do botão
+        />
+      </View>
 
       <Text style={styles.warning}>Importante! Preencha todos os campos</Text>
     </ScrollView>
@@ -129,17 +168,29 @@ const Formulario: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
+    flexGrow: 1,
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#d3d3d3', // Fundo cinza claro
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#000',
-    backgroundColor: '#6200ea',
+    color: '#fff',
+    backgroundColor: '#685FE9', // Fundo roxo claro #685FE9
     padding: 15,
+    borderRadius: 10, // Borda arredondada
     marginBottom: 20,
+  },
+  formContainer: {
+    backgroundColor: '#fff', // Fundo branco para o formulário
+    padding: 20,
+    borderRadius: 10, // Borda arredondada
+    elevation: 3, // Sombra para Android
+    shadowColor: '#000', // Sombra para iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
   },
   label: {
     fontSize: 16,
@@ -152,7 +203,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     padding: 10,
     marginBottom: 15,
-    borderRadius: 5,
+    borderRadius: 10, // Borda arredondada
   },
   checkboxContainer: {
     flexDirection: 'row',
